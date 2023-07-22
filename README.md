@@ -1,4 +1,7 @@
 # Chess Coding Challenge (C#)
+
+This is the repository for my attempts for this coding challenge.
+
 Welcome to the [chess coding challenge](https://youtu.be/iScy18pVR58)! This is a friendly competition in which your goal is to create a small chess bot (in C#) using the framework provided in this repository.
 Once submissions close, these bots will battle it out to discover which bot is best!
 
