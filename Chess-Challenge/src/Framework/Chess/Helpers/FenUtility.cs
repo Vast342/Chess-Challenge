@@ -80,12 +80,8 @@ namespace ChessChallenge.Chess
             return loadedPositionInfo;
         }
 
-        /// <summary>
-        /// Get the fen string of the current position
-        /// When alwaysIncludeEPSquare is true the en passant square will be included
-        /// in the fen string even if no enemy pawn is in a position to capture it.
-        /// </summary>
-        public static string CurrentFen(Board board, bool alwaysIncludeEPSquare = true)
+        // Get the fen string of the current position
+        public static string CurrentFen(Board board)
         {
             string fen = "";
             for (int rank = 7; rank >= 0; rank--)
@@ -165,15 +161,13 @@ namespace ChessChallenge.Chess
             int epFileIndex = board.currentGameState.enPassantFile - 1;
             int epRankIndex = (board.IsWhiteToMove) ? 5 : 2;
 
-            bool isEnPassant = epFileIndex != -1;
-            bool includeEP = alwaysIncludeEPSquare || EnPassantCanBeCaptured(epFileIndex, epRankIndex, board);
-            if (isEnPassant && includeEP)
+            if (epFileIndex == -1 || !EnPassantCanBeCaptured(epFileIndex, epRankIndex, board))
             {
-                fen += BoardHelper.SquareNameFromCoordinate(epFileIndex, epRankIndex);
+                fen += '-';
             }
             else
             {
-                fen += '-';
+                fen += BoardHelper.SquareNameFromCoordinate(epFileIndex, epRankIndex);
             }
 
             // 50 move counter
