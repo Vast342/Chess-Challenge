@@ -1,8 +1,5 @@
 ﻿using ChessChallenge.API;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 
 public class MyBot : IChessBot
@@ -16,136 +13,49 @@ public class MyBot : IChessBot
     Day 2: 7/22/23.
     While forgetting to sleep I had the great idea of storing information in a board and it's FEN string. If we ignore the gaps because it's painful to work with, we still
     have 12 unique pieces to work with, so we basically have 64 bits of base 11, or like 4.4579156845259056E+66 combinations which is more than enough to work with.
-    And it turns out that that might not be useful. Each character in a string counts as a token, and a full fen string has 64 characters for pieces and 7 slashes, making it
-    use 71 total tokens. That is about 1/15th of the total tokens, which is most likely not worth it. I was mostly busy today and didn't work much on it after that discovery.
-    My next idea is going back to the checks captures attacks idea.
-    Day 3: 7/23/23.
-    Another not very productive day, I had to spend a lot of my time since I'm in the home stretch of my classes this summer. I've refined my idea a bit more with a search method
-    that I sorta made up, so I'm working on that now. The concept with this is to make an easy way to evaluate the board (I can make it more token efficient later) and then search
-    and evaluate every possible move to a certain depth and then do the best move.
     */
     public Move Think(Board board, Timer timer)
     {
-        // Idea 3
-        // randomizer if it can't decide on a move
-        var rng = new Random();
-        // lists of possible moves
-        Move[] moves = board.GetLegalMoves();
-        Move[] captures = board.GetLegalMoves(true);
-        // these are used for the deeper search
-        Move[] moreMoves;
-        Move[] moreMoreMoves;
-        //Move[] moreMoreMoreMoves;
-        // a few bools for if a piece is defended or not and if a particular checkmate idea is preventable or not.
-        bool attacked;
-        bool preventable;
-        // an index to be used for randomizer later
-        int index = 0;
-        // depth 1 search
-        foreach(Move move in moves) {
-            // detection for if a move is attacked
-            attacked = board.SquareIsAttackedByOpponent(move.TargetSquare);
-            // make the move
-            board.MakeMove(move);
-            // if mate in 1, DO IT
+        // The array of lists of possible moves, in which each list is a different depth of the search depending on where it is 
+        List<Move>[] moves = new List<Move>[2];
+        // initializes the first list of possible moves and captures, with a search depth of 1
+        moves[0] = board.GetLegalMoves().ToList();
+        moves[1]= board.GetLegalMoves(true).ToList();
+        PieceList[] pieces = board.GetAllPieceLists();
+        int[] index = new int[5];
+        for(int i = 0; i < moves[0].Count; i++) {
+            board.MakeMove(moves[0][i]);
             if(board.IsInCheckmate()) {
-                return move;
+                return moves[0][i];
             }
-            // depth 2 search
-            moreMoves = board.GetLegalMoves();
-            foreach(Move move1 in moreMoves) {
-                // make the move
-                board.MakeMove(move1);
-                // if the opponent has mate in 1
-                if(board.IsInCheckmate()) {
-                    // PANIC
-                    // goes back to searching the player's move
-                    moreMoreMoves = board.GetLegalMoves();
-                    board.UndoMove(move1);
-                    board.UndoMove(move);
-                    // try all of them until its not mate anymore
-                    foreach(Move move2 in moves) {
-                        board.MakeMove(move2);
-                        board.MakeMove(move1);
-                        if(!board.IsInCheckmate()) {
-                            return move2;
-                        }
-                        board.UndoMove(move1);
-                        board.UndoMove(move2);
-                    }
-                    // catch up
-                    board.MakeMove(move);
-                    board.MakeMove(move1);
+            board.UndoMove(moves[0][i]);
+            if(board.IsWhiteToMove) {
+                for(int j = 0; j < 6; j++) {
+                    index[3] += pieces[j].Count;
                 }
-                // depth 3 search
-                moreMoreMoves = board.GetLegalMoves();
-                foreach(Move move2 in moreMoreMoves) {
-                    // makes the move
-                    board.MakeMove(move2);
-                    // if mate in 2
-                    if(board.IsInCheckmate()) {
-                        // check if the mate is preventable
-                        board.UndoMove(move2);
-                        board.UndoMove(move1);
-                        preventable = false;
-                        foreach(Move move3 in moreMoves) {
-                            board.MakeMove(move3);
-                            board.MakeMove(move2);
-                            if(!board.IsInCheckmate()) {
-                                preventable = true;
-                            }
-                            board.UndoMove(move2);
-                            board.UndoMove(move3);
-                        }
-                        // if not then do the checkmate
-                        if(!preventable) {
-                            return move;
-                        }
-                        board.MakeMove(move1);
-                        board.MakeMove(move2);
-                    }
-                    // currently unimplemented depth 4 search
-                    /*moreMoreMoreMoves = board.GetLegalMoves();
-                    foreach (Move move3 in moreMoreMoreMoves) {
-                        board.MakeMove(move3);
-                        if(board.IsInCheckmate()) {
-                            // PANIC
-                        }
-                        board.UndoMove(move3);
-                    }
-                    */
-                    // undo the moves
-                    board.UndoMove(move2);
+                for(int j = 6; j < 12; j++) {
+                    index[4] += pieces[j].Count;
                 }
-                board.UndoMove(move1);
+                index[2] += index[3] / index[4] * 8;
+            } else {
+                for(int j = 0; j < 6; j++) {
+                    index[4] += pieces[j].Count;
+                }
+                for(int j = 6; j < 12; j++) {
+                    index[3] += pieces[j].Count;
+                }
+                index[2] += index[4] / index[3] * 8;
             }
-            // if not attacked check then go for it
-            if(board.IsInCheck() && !attacked) {                
-                return move;
+            index[2] += (moves[1].Count * 2) + moves[0].Count;
+            if(index[2] > index[1]) {
+                index[0] = i;
+                index[1] = index[2];
             }
-            board.UndoMove(move);     
         }
-        // random capture (old code was skipping a buncha stuff)
-        if(captures.Length > 0) {
-            for(int i = 0; i < 1; i++) {
-                index = rng.Next(0, moves.Length-1);
-                if(board.SquareIsAttackedByOpponent(moves[index].TargetSquare)) {
-                    i--;
-                }
-            }
-            return captures[index];
-        }
-        // random move if its not under attack unless you are in check
-        if(board.IsInCheck()) {
-            return moves[0];
+        if(moves[0][index[0]] != Move.NullMove) {
+            return moves[0][index[0]];
         } else {
-        for(int i = 0; i < 1; i++) {
-            index = rng.Next(0, moves.Length-1);
-            if(board.SquareIsAttackedByOpponent(moves[index].TargetSquare)) {
-                i--;
-            }
-        }
-        return moves[index];
+            return moves[0][0];
         }
     }
 }
