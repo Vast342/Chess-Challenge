@@ -1,0 +1,34 @@
+Proposed steps: 
+
+(We'll just assume you are using fail soft since you have a TT)
+1. check time - if time is up abort (return 0)
+2. check for draw, if draw return draw value (contempt).
+3. check for depth 0 - if so, qsearch, return the value it yields
+4. save alpha
+5. probe the TT
+6. check for mate - check or stale - return mate value for check, draw value for stale (note this could also come before 4... it might even be better that way if you don't handle mate in your TT)
+7. loop through the moves, search and score them, raise alpha if possible, check for beta cutoff and prune the remaining moves if you get one.
+8. store the node in the TT. Use the saved alpha to determine if high score is an upper bound. Use beta to determine whether the high score is a lower bound. If neither, the high score is exact.
+9. return the high score
+
+although the compiler usually catches stuff like this, it is also better not to code a bunch of memory reads for the same location. You can use a variable (most likely referring to my Table setup)
+
+There is a lot more wrong here
+but I think you will find it by reading other engines
+You have to read before you can write.
+
+1:     An optimal move for a player in a zero-sum two-player game of perfect information is the move that minimizes their maximum loss given that the opponent is also an optimal player
+2: Alpha is the minimum score that the maximizer is guaranteed at a node, while beta is the maximum score that the minimizer is guaranteed
+
+if alpha and beta meet or cross the node is too good for the current player because the opponent can avoid it so it gets skipped.
+
+the time checking assumes you use iterative deepening
+also, keep in mind, this is the pure vanilla implementation
+other than the TT
+what vanilla mean?
+as in, it is the simplest you can get, barring the TT
+for Alpha Beta
+you can add sooooo much more
+to a real engine
+but for this challenge you do want to think small
+

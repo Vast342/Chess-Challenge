@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Collections;
 using System.Collections.Generic;
 using ChessChallenge.Application;
+using System.Runtime.Intrinsics.X86;
 
 public class MyBot : IChessBot
 {
@@ -36,127 +37,90 @@ public class MyBot : IChessBot
     I spent the entire day learning about Selenaut's code for compressing piece square tables and tried to modify that for use with PeSTO's piece-square tables and a rudimentary
     endgame detection, that ended up making it worse. I just had a great conversation with Ellie M about different aspects of chess bots so in total this is probably the most
     i've learned in a single day in years.
+    Day 8: 7/28/23.
+    So I decided to completely rewrite my negamax because I didn't understand it much. It worked better. So I remade my AB Pruning, and it worked faster. I made a Quiecense
+    (probably not spelled right), search, and it immediately failed. So I did more research, and now it works. Up next, Transposition Tables and Iterative Deepening.
     */
 
     int[] pieceValues = {0, 100, 310, 330, 500, 1000, 50000};
-
     int universalDepth;
+    int bigNumber = 999999999;
+
     Move selectedMove;
-
-    readonly ulong[,] mg_psqts = {
-        {0xFFFFBEE41FE25900, 0x000017002A03A700, 0x0000101D1FADDE00, 0xFFFFF10C32DACF00, 0xFFFFC83B3EE73D00, 0xFFFFDE2C08D59F00, 0x0000022B1F06F100, 0x00000D2D2AF79500},
-        {0x00001CE81AE5B762, 0xFFFFFED9200FD786, 0xFFFFEBFB39EE483D, 0xFFFFF9013DF3245F, 0xFFFFF7F0501E1744, 0xFFFFFC39433B3E7E, 0xFFFFDA1C1A120722, 0xFFFFE3362BD0EEF5},
-        {0xFFFFF6F2FAEFD0FA, 0x000017EF13253C07, 0x000002071A2B251A, 0xFFFFF0082428411F, 0xFFFFEC1D11235441, 0x000006382D328138, 0x0000162F3D254919, 0xFFFFEA390FFE2BEC},
-        {0xFFFFEEE4E7FBF6F2, 0xFFFFEBE4F505110D, 0xFFFFF3F007131306, 0xFFFFE4F01A323515, 0xFFFFE1FF18252517, 0xFFFFE7112325450C, 0xFFFFF1FDF8071211, 0xFFFFDC00EBFE15E9},
-        {0xFFFFCEF6DBF9F2E5, 0xFFFFFEE5E60D03FE, 0xFFFFE4F6F40D0FFB, 0xFFFFD8F5FF1A0D0C, 0xFFFFD1FE09221C11, 0xFFFFD3FBF90C1306, 0xFFFFDF03060A150A, 0xFFFFCCFCE903F7E7},
-        {0xFFFFF1F1D2FFE8E6, 0xFFFFF201E70EF6FC, 0xFFFFE9F4F00F0BFC, 0xFFFFD1FDEF0F09F6, 0xFFFFD3FB030E1303, 0xFFFFE202001B1103, 0xFFFFF10DFB121921, 0xFFFFE504DF09EFF4},
-        {0x000000DCD403E2DD, 0x000006F7F00ECAFF, 0xFFFFF80AEC0FF3EC, 0xFFFFC001F6FFFCE9, 0xFFFFD507FF06FEF1, 0xFFFFF00F0B151218, 0x000008FCFA20F226, 0x00000800B900ECEA},
-        {0xFFFFF0FEECDE9700, 0x000023EDF2FCEB00, 0x00000BF700F1C600, 0xFFFFCA0A10EADF00, 0x000007F10FF2EF00, 0xFFFFE3E706F3E400, 0x000017E0DAD8ED00, 0x00000DCDE5EAE900}
-    };
-    readonly ulong[,] eg_psqts = {
-        {0xFFFFBEE41FE25900, 0x000017002A03A700, 0x0000101D1FADDE00, 0xFFFFF10C32DACF00, 0xFFFFC83B3EE73D00, 0xFFFFDE2C08D59F00, 0x0000022B1F06F100, 0x00000D2D2AF79500},
-        {0x00001CE81AE5B762, 0xFFFFFED9200FD786, 0xFFFFEBFB39EE483D, 0xFFFFF9013DF3245F, 0xFFFFF7F0501E1744, 0xFFFFFC39433B3E7E, 0xFFFFDA1C1A120722, 0xFFFFE3362BD0EEF5},
-        {0xFFFFF6F2FAEFD0FA, 0x000017EF13253C07, 0x000002071A2B251A, 0xFFFFF0082428411F, 0xFFFFEC1D11235441, 0x000006382D328138, 0x0000162F3D254919, 0xFFFFEA390FFE2BEC},
-        {0xFFFFEEE4E7FBF6F2, 0xFFFFEBE4F505110D, 0xFFFFF3F007131306, 0xFFFFE4F01A323515, 0xFFFFE1FF18252517, 0xFFFFE7112325450C, 0xFFFFF1FDF8071211, 0xFFFFDC00EBFE15E9},
-        {0xFFFFCEF6DBF9F2E5, 0xFFFFFEE5E60D03FE, 0xFFFFE4F6F40D0FFB, 0xFFFFD8F5FF1A0D0C, 0xFFFFD1FE09221C11, 0xFFFFD3FBF90C1306, 0xFFFFDF03060A150A, 0xFFFFCCFCE903F7E7},
-        {0xFFFFF1F1D2FFE8E6, 0xFFFFF201E70EF6FC, 0xFFFFE9F4F00F0BFC, 0xFFFFD1FDEF0F09F6, 0xFFFFD3FB030E1303, 0xFFFFE202001B1103, 0xFFFFF10DFB121921, 0xFFFFE504DF09EFF4},
-        {0x000000DCD403E2DD, 0x000006F7F00ECAFF, 0xFFFFF80AEC0FF3EC, 0xFFFFC001F6FFFCE9, 0xFFFFD507FF06FEF1, 0xFFFFF00F0B151218, 0x000008FCFA20F226, 0x00000800B900ECEA},
-        {0xFFFFF0FEECDE9700, 0x000023EDF2FCEB00, 0x00000BF700F1C600, 0xFFFFCA0A10EADF00, 0x000007F10FF2EF00, 0xFFFFE3E706F3E400, 0x000017E0DAD8ED00, 0x00000DCDE5EAE900}
-    };
-
-    private const sbyte EXACT = 0, LOWERBOUND = -1, UPPERBOUND = 1, INVALID = -2;
-    private static ulong k_TpMask = 0x7FFFFF;
-    private Transposition[] Table = new Transposition[k_TpMask + 1];
-    public struct Transposition {
-        public Transposition(ulong zHash, int eval, byte d)
-        {
-            zobristHash = zHash;
-            evaluation = eval;
-            depth = d;
-            flag = INVALID;
-        }
-
-        public ulong zobristHash = 0;
-        public int evaluation = 0;
-        public byte depth = 0;
-        public sbyte flag = INVALID;
-    }; 
     public Move Think(Board board, Timer timer) {
-        universalDepth = 1;
-        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
-        universalDepth = 2;
-        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
         universalDepth = 3;
-        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
-        universalDepth = 4;
-        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
-        universalDepth = 5;
-        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
+        NegaMax(universalDepth, board, board.IsWhiteToMove ? 1 : -1, -bigNumber, bigNumber);
         return selectedMove;
     }
-    int Evaluate(Board board, int depth, int alpha, int beta, int color, int plyCount) {
-        Move[] allMoves = board.GetLegalMoves();
+    int Evaluate(Board board, int color) {
         if(board.IsDraw()) {
             return 0;
         }
         if(board.IsInCheckmate()) {
-            return -10000000 + board.PlyCount - plyCount; // BIG NUMBER
+            return -1000000;
         }
-        if(depth == 0 || allMoves.Length == 0) {
-            if(Table[board.ZobristKey & 0x7FFFFF].flag != INVALID) {
-                if (Table[board.ZobristKey & 0x7FFFFF].flag == EXACT)
-                    return Table[board.ZobristKey & 0x7FFFFF].evaluation;
-                else if (Table[board.ZobristKey & 0x7FFFFF].flag == LOWERBOUND)
-                    alpha = Math.Max(alpha, Table[board.ZobristKey & 0x7FFFFF].evaluation);
-                else if (Table[board.ZobristKey & 0x7FFFFF].flag == UPPERBOUND)
-                    beta = Math.Min(beta, Table[board.ZobristKey & 0x7FFFFF].evaluation);
-
-                if (alpha >= beta)
-                    return Table[board.ZobristKey & 0x7FFFFF].evaluation;
-            } else {
-                int sum = 0;
-                for(int i = 1; i < 7; i++) {
-                sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * pieceValues[i];
-                }
-                foreach(PieceList list in board.GetAllPieceLists()) {
-                    foreach(Piece piece in list) {
-                        sum += GetPieceBonusScore(piece.PieceType, piece.IsWhite, piece.Square.File, piece.Square.Rank, board);
-                    }
-                }
-                Table[board.ZobristKey & 0x7FFFFF] = new Transposition(board.ZobristKey, sum, (byte)universalDepth);
-                return color * sum;
-            }
+        int sum = board.GetLegalMoves().Length;
+        for(int i = 1; i < 7; i++) {
+            sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * pieceValues[i];
         }
-        int recordEval = int.MinValue;
-        foreach(Move move in allMoves) {
+        return color * sum;
+    }
+    int NegaMax(int depth, Board board, int color, int alpha, int beta) {
+        if(depth == 0) {
+            return QSearch(board, color, alpha, beta);
+            //return Evaluate(board, color);
+        }
+        foreach(Move move in board.GetLegalMoves()) {
             board.MakeMove(move);
-            int evaluation = -Evaluate(board, depth - 1, -beta, -alpha, -color, plyCount);
+            int score = -NegaMax(depth - 1, board, -color, -beta, -alpha);
             board.UndoMove(move);
-            if(recordEval < evaluation) {
-                recordEval = evaluation;
-                if (universalDepth == depth) {
+            if(score > alpha) {
+                alpha = score;
+                if(depth == universalDepth) {
                     selectedMove = move;
                 }
             }
-            alpha = Math.Max(alpha, recordEval);
-            if(alpha >= beta) { 
-                break;
+            if(score >= beta) {
+                return beta;
             }
         }
-        return recordEval;
+        return alpha;
     }
-    private int GetPieceBonusScore(PieceType type, bool isWhite, int file, int rank, Board board) {
-        type--;
-        if(isWhite) rank = 7 - rank;
-        int unpackedData = 0;
-        ulong bytemask = 0xFF;
-        if(BitOperations.PopCount(board.AllPiecesBitboard) < 10) {
-            unpackedData = (int)(eg_psqts[rank,file] & (bytemask << (int)type)) >> (int)type;
-        } else {
-            unpackedData = (int)(mg_psqts[rank,file] & (bytemask << (int)type)) >> (int)type;
+    int QSearch(Board board, int color, int alpha, int beta) {
+        int stand_pat = Evaluate(board, color);
+        if(stand_pat >= beta) {
+            return beta;
         }
-        if(isWhite) unpackedData *= -1;
-        return unpackedData;
+        if(alpha < stand_pat) {
+            alpha = stand_pat;
+        }
+        Move[] moves = board.GetLegalMoves(true);
+        OrderMoves(ref moves);
+        foreach(Move move in moves) {
+            board.MakeMove(move);
+            int score = -QSearch(board, -color, -beta, -alpha);
+            board.UndoMove(move);
+            if(score >= beta) {
+                return beta;
+            }
+            if(score > alpha) {
+                alpha = score;
+            }
+        }
+        return alpha;
     }
 
+    public void OrderMoves(ref Move[] moves) {
+        float[] scores = new float[moves.Length];
+        for (int i = 0; i < moves.Length; i++)
+        {
+            if (moves[i].CapturePieceType != PieceType.None)
+                scores[i] = 10 * pieceValues[(int)(moves[i].CapturePieceType)] - pieceValues[(int)(moves[i].MovePieceType)];
+            else
+                scores[i] = -99999999;
+
+            scores[i] = -scores[i];
+        }
+        Array.Sort(scores, moves);
+    }
 }
