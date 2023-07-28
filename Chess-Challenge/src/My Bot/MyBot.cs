@@ -33,6 +33,9 @@ public class MyBot : IChessBot
     Day 7: 7/27/23.
     So I made some negamax and it works really well, except its terrible at openings and endgames so I'm going to try to make the evaluation better and prioritize piece
     positioning.
+    I spent the entire day learning about Selenaut's code for compressing piece square tables and tried to modify that for use with PeSTO's piece-square tables and a rudimentary
+    endgame detection, that ended up making it worse. I just had a great conversation with Ellie M about different aspects of chess bots so in total this is probably the most
+    i've learned in a single day in years.
     */
 
     int[] pieceValues = {0, 100, 310, 330, 500, 1000, 50000};
@@ -61,12 +64,34 @@ public class MyBot : IChessBot
         {0xFFFFF0FEECDE9700, 0x000023EDF2FCEB00, 0x00000BF700F1C600, 0xFFFFCA0A10EADF00, 0x000007F10FF2EF00, 0xFFFFE3E706F3E400, 0x000017E0DAD8ED00, 0x00000DCDE5EAE900}
     };
 
+    private const sbyte EXACT = 0, LOWERBOUND = -1, UPPERBOUND = 1, INVALID = -2;
+    private static ulong k_TpMask = 0x7FFFFF;
+    private Transposition[] Table = new Transposition[k_TpMask + 1];
+    public struct Transposition {
+        public Transposition(ulong zHash, int eval, byte d)
+        {
+            zobristHash = zHash;
+            evaluation = eval;
+            depth = d;
+            flag = INVALID;
+        }
 
-
+        public ulong zobristHash = 0;
+        public int evaluation = 0;
+        public byte depth = 0;
+        public sbyte flag = INVALID;
+    }; 
     public Move Think(Board board, Timer timer) {
+        universalDepth = 1;
+        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
+        universalDepth = 2;
+        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
         universalDepth = 3;
         Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
-
+        universalDepth = 4;
+        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
+        universalDepth = 5;
+        Evaluate(board, universalDepth, -99999999, 99999999, board.IsWhiteToMove ? 1 : -1, board.PlyCount);
         return selectedMove;
     }
     int Evaluate(Board board, int depth, int alpha, int beta, int color, int plyCount) {
@@ -74,20 +99,33 @@ public class MyBot : IChessBot
         if(board.IsDraw()) {
             return 0;
         }
+        if(board.IsInCheckmate()) {
+            return -10000000 + board.PlyCount - plyCount; // BIG NUMBER
+        }
         if(depth == 0 || allMoves.Length == 0) {
-            int sum = 0;
-            if(board.IsInCheckmate()) {
-                return -10000000 + board.PlyCount - plyCount; // BIG NUMBER
-            }
-            for(int i = 1; i < 7; i++) {
-               sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * pieceValues[i];
-            }
-            foreach(PieceList pieceList in board.GetAllPieceLists()) {
-                foreach(Piece piece in pieceList) {
-                    sum += GetPieceBonusScore(piece.PieceType, piece.IsWhite, piece.Square.File, piece.Square.Rank, board);
+            if(Table[board.ZobristKey & 0x7FFFFF].flag != INVALID) {
+                if (Table[board.ZobristKey & 0x7FFFFF].flag == EXACT)
+                    return Table[board.ZobristKey & 0x7FFFFF].evaluation;
+                else if (Table[board.ZobristKey & 0x7FFFFF].flag == LOWERBOUND)
+                    alpha = Math.Max(alpha, Table[board.ZobristKey & 0x7FFFFF].evaluation);
+                else if (Table[board.ZobristKey & 0x7FFFFF].flag == UPPERBOUND)
+                    beta = Math.Min(beta, Table[board.ZobristKey & 0x7FFFFF].evaluation);
+
+                if (alpha >= beta)
+                    return Table[board.ZobristKey & 0x7FFFFF].evaluation;
+            } else {
+                int sum = 0;
+                for(int i = 1; i < 7; i++) {
+                sum += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * pieceValues[i];
                 }
+                foreach(PieceList list in board.GetAllPieceLists()) {
+                    foreach(Piece piece in list) {
+                        sum += GetPieceBonusScore(piece.PieceType, piece.IsWhite, piece.Square.File, piece.Square.Rank, board);
+                    }
+                }
+                Table[board.ZobristKey & 0x7FFFFF] = new Transposition(board.ZobristKey, sum, (byte)universalDepth);
+                return color * sum;
             }
-            return color * sum;
         }
         int recordEval = int.MinValue;
         foreach(Move move in allMoves) {
@@ -106,12 +144,10 @@ public class MyBot : IChessBot
             }
         }
         return recordEval;
-
     }
-
     private int GetPieceBonusScore(PieceType type, bool isWhite, int file, int rank, Board board) {
-        type = (PieceType)(int)type-1;
-        if(!isWhite) rank = 7 - rank;
+        type--;
+        if(isWhite) rank = 7 - rank;
         int unpackedData = 0;
         ulong bytemask = 0xFF;
         if(BitOperations.PopCount(board.AllPiecesBitboard) < 10) {
@@ -119,7 +155,8 @@ public class MyBot : IChessBot
         } else {
             unpackedData = (int)(mg_psqts[rank,file] & (bytemask << (int)type)) >> (int)type;
         }
-        if(!isWhite) unpackedData *= -1;
+        if(isWhite) unpackedData *= -1;
         return unpackedData;
     }
+
 }
