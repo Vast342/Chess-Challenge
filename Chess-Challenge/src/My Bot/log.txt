@@ -1,0 +1,33 @@
+/*
+    LOG OF MY WORK
+    Day 1: 7/21/23.
+    I had a variety of strange ideas today, I worked mostly on an idea where it would search for both its and its opponents checkmates, then captures, then attacks, 
+    and ONLY THEN would it do a random move. That worked until I cloned the repo and accidentally deleted it and began working on this evaluation idea instead. It's 
+    not great so far though, and just makes random pawn walls for some reason. It's 12:52 AM right now though so I need sleep. (That section was typed on 7/22)
+    Day 2: 7/22/23.
+    While forgetting to sleep I had the great idea of storing information in a board and it's FEN string. If we ignore the gaps because it's painful to work with, we still
+    have 12 unique pieces to work with, so we basically have 64 bits of base 11, or like 4.4579156845259056E+66 combinations which is more than enough to work with.
+    And it turns out that that might not be useful. Each character in a string counts as a token, and a full fen string has 64 characters for pieces and 7 slashes, making it
+    use 71 total tokens. That is about 1/15th of the total tokens, which is most likely not worth it. I was mostly busy today and didn't work much on it after that discovery.
+    My next idea is going back to the checks captures attacks idea.
+    Day 3: 7/23/23.
+    Another not very productive day, I had to spend a lot of my time since I'm in the home stretch of my classes this summer. I've refined my idea a bit more with a search method
+    that I sorta made up, so I'm working on that now. The concept with this is to make an easy way to evaluate the board (I can make it more token efficient later) and then
+    search and evaluate every possible move to a certain depth and then do the best move.
+    Day 5: 7/25/23.
+    And instead I forgot to work on that at all and was just making a search for checkmates. Oops. 
+    Now I make an evaluations.
+    Day 6: 7/26/23.
+    I made a basic material evaluation, commented out at the bottom.
+    And now its turned straight back into the search. i guess it's time to try negamax or something idk
+    getting a bit bored and distracted and consistently nothing is working so AAAAAAAAAAAAAAAAAAAAAAAAAAA
+    Day 7: 7/27/23.
+    So I made some negamax and it works really well, except its terrible at openings and endgames so I'm going to try to make the evaluation better and prioritize piece
+    positioning.
+    I spent the entire day learning about Selenaut's code for compressing piece square tables and tried to modify that for use with PeSTO's piece-square tables and a rudimentary
+    endgame detection, that ended up making it worse. I just had a great conversation with Ellie M about different aspects of chess bots so in total this is probably the most
+    i've learned in a single day in years.
+    Day 8: 7/28/23.
+    So I decided to completely rewrite my negamax because I didn't understand it much. It worked better. So I remade my AB Pruning, and it worked faster. I made a Quiecense
+    (probably not spelled right), search, and it immediately failed. So I did more research, and now it works. Up next, Transposition Tables and Iterative Deepening.
+    */
