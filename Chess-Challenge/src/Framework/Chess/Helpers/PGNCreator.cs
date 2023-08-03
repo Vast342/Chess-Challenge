@@ -6,7 +6,6 @@ namespace ChessChallenge.Chess
 
     public static class PGNCreator
     {
-
         public static string CreatePGN(Move[] moves)
         {
             return CreatePGN(moves, GameResult.InProgress, FenUtility.StartPositionFEN);
@@ -16,7 +15,7 @@ namespace ChessChallenge.Chess
         {
             return CreatePGN(board.AllGameMoves.ToArray(), result, board.GameStartFen, whiteName, blackName);
         }
-
+        private static int numGames = 0;
         public static string CreatePGN(Move[] moves, GameResult result, string startFen, string whiteName = "", string blackName = "")
         {
             startFen = startFen.Replace("\n", "").Replace("\r", "");
@@ -24,7 +23,14 @@ namespace ChessChallenge.Chess
             StringBuilder pgn = new();
             Board board = new Board();
             board.LoadPosition(startFen);
+            pgn.AppendLine($"[Game #" + numGames + "]");
+            numGames++;
             // Headers
+            if (result is not GameResult.NotStarted or GameResult.InProgress)
+            {
+                if(result == GameResult.WhiteIsMated) pgn.AppendLine($"[\"{whiteName}\" is mated]");
+                if(result == GameResult.BlackIsMated) pgn.AppendLine($"[\"{blackName}\" is mated]");
+            }
             if (!string.IsNullOrEmpty(whiteName))
             {
                 pgn.AppendLine($"[White \"{whiteName}\"]");

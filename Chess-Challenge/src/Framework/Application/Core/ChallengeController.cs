@@ -14,6 +14,16 @@ namespace ChessChallenge.Application
 {
     public class ChallengeController
     {
+        public static ChessChallenge.API.IChessBot? CreateBot(PlayerType type)
+        {
+            return type switch
+            {
+                PlayerType.MyBot => new MyBot(),
+                PlayerType.EvilBot => new EvilBot(),
+                // If you have other bot types, you can add them here as well
+                _ => null
+            };
+        }
         public enum PlayerType
         {
             Human,
@@ -286,7 +296,7 @@ namespace ChessChallenge.Application
 
                 if (log)
                 {
-                   Log("Game Over: " + result + " Match: " + CurrGameNumber, false, ConsoleColor.Blue);
+                   Log("Game Over: " + result + " Match: " + CurrGameNumber, false, ConsoleColor.White);
                 }
 
                 string pgn = PGNCreator.CreatePGN(board, result, GetPlayerName(PlayerWhite), GetPlayerName(PlayerBlack));

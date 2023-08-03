@@ -3,7 +3,7 @@ using System;
 
 namespace ChessChallenge.Example
 {
-    public class EvilBot : IChessBot
+    public class EvilBsot : IChessBot
     {
         //                     .  P    K    B    R    Q    K
         int[] kPieceValues = { 0, 100, 300, 310, 500, 900, 10000 };
@@ -14,7 +14,6 @@ namespace ChessChallenge.Example
 
         public Move Think(Board board, Timer timer)
         {
-            Move[] legalMoves = board.GetLegalMoves();
             mDepth = 3;
 
             EvaluateBoardNegaMax(board, mDepth, -kMassiveNum, kMassiveNum, board.IsWhiteToMove ? 1 : -1);
